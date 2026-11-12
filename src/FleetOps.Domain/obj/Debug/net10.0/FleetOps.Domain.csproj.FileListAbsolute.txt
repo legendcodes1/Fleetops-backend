@@ -1,0 +1,11 @@
+C:\Dev\FleetOps\src\FleetOps.Domain\bin\Debug\net10.0\FleetOps.Domain.deps.json
+C:\Dev\FleetOps\src\FleetOps.Domain\bin\Debug\net10.0\FleetOps.Domain.dll
+C:\Dev\FleetOps\src\FleetOps.Domain\bin\Debug\net10.0\FleetOps.Domain.pdb
+C:\Dev\FleetOps\src\FleetOps.Domain\obj\Debug\net10.0\FleetOps.Domain.GeneratedMSBuildEditorConfig.editorconfig
+C:\Dev\FleetOps\src\FleetOps.Domain\obj\Debug\net10.0\FleetOps.Domain.AssemblyInfoInputs.cache
+C:\Dev\FleetOps\src\FleetOps.Domain\obj\Debug\net10.0\FleetOps.Domain.AssemblyInfo.cs
+C:\Dev\FleetOps\src\FleetOps.Domain\obj\Debug\net10.0\FleetOps.Domain.csproj.CoreCompileInputs.cache
+C:\Dev\FleetOps\src\FleetOps.Domain\obj\Debug\net10.0\FleetOps.Domain.dll
+C:\Dev\FleetOps\src\FleetOps.Domain\obj\Debug\net10.0\refint\FleetOps.Domain.dll
+C:\Dev\FleetOps\src\FleetOps.Domain\obj\Debug\net10.0\FleetOps.Domain.pdb
+C:\Dev\FleetOps\src\FleetOps.Domain\obj\Debug\net10.0\ref\FleetOps.Domain.dll

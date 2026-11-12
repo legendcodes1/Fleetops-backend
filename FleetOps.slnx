@@ -1,0 +1,9 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/FleetOps.Api/FleetOps.Api.csproj" />
+    <Project Path="src/FleetOps.Domain/FleetOps.Domain.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/FleetOps.Domain.Tests/FleetOps.Domain.Tests.csproj" />
+  </Folder>
+</Solution>

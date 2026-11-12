@@ -5,8 +5,9 @@ namespace FleetOps.Domain.Entities;
 public class Asset
 {
     public Guid Id { get; }
-    public string Name { get; }
-    public string SerialNumber { get; }
+    public string Name { get; private set; }
+    public string SerialNumber { get; private set; }
+
     public AssetStatus Status { get; private set; }
 
     public Asset(string name, string serialNumber)
@@ -59,4 +60,35 @@ public class Asset
             throw new InvalidOperationException("Asset must be operational to retire.");
         }
     }
+
+    public void UpdateDetails(string name, string serialNumber)
+    {
+        if (Status == AssetStatus.Retired)
+        {
+            throw new InvalidOperationException(
+                "Cannot update a retired asset."
+            );
+        }
+
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            throw new ArgumentException(
+                "Asset name cannot be empty.",
+                nameof(name)
+            );
+        }
+
+        // Validate serialNumber
+        if (string.IsNullOrWhiteSpace(serialNumber))
+        {
+            throw new ArgumentException(
+                "Asset serial number cannot be empty.",
+                nameof(serialNumber)
+            );
+        }
+
+        Name = name;
+        SerialNumber = serialNumber;
+    }
+
 }

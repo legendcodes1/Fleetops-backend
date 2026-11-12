@@ -57,17 +57,49 @@ public class AssetsController : ControllerBase
         return Ok(asset);
     }
 
+    [HttpPut("{id:guid}")]
+    public IActionResult UpdateAsset( Guid id, [FromBody] UpdateAssetRequest request)
+    {
+        // 1. Find the asset by ID
+        var asset = Assets.FirstOrDefault(a => a.Id == id);
+        // 2. Return NotFound() if it doesn't exist
+        if (asset == null)
+        {
+            return NotFound();
+        }
+
+        asset.UpdateDetails(request.Name, request.SerialNumber);
+
+        return NoContent();
+    }
+
+
     // From body Converts JSON into CreateAssetRequest
     [HttpPost]
     public IActionResult CreateAsset( [FromBody] CreateAssetRequest request)
     {
-        // 1. Construct an Asset using request.Name
-        //    and request.SerialNumber
+   
         var asset = new Asset(request.Name, request.SerialNumber);
-        // 2. Add it to your existing Assets collection
+
         Assets.Add(asset);
-        // 3. Return CreatedAtAction(...)
+     
         return CreatedAtAction(nameof(GetAssetById), new { id = asset.Id }, asset);
+    }
+
+    [HttpDelete("{id:guid}")]
+    public IActionResult DeleteAsset(Guid id)
+    {
+ 
+        var asset = Assets.FirstOrDefault(a => a.Id == id);
+     
+        if (asset == null)
+        {
+            return NotFound();
+        }
+     
+        Assets.Remove(asset);
+
+        return NoContent();
     }
 
 

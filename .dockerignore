@@ -1,0 +1,10 @@
+**/bin
+**/obj
+**/TestResults
+.git
+.env
+.env.*
+!.env.example
+.aws
+.codex
+.agents

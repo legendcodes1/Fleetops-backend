@@ -6,8 +6,10 @@ namespace FleetOps.Api.Contracts;
 public class CreateAssetRequest
 {
     [Required]
+    [StringLength(200)]
     public string Name { get; set; } = "";
 
     [Required]
+    [StringLength(100)]
     public string SerialNumber { get; set; } = "";
 }

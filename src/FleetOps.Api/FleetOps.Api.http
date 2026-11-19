@@ -1,6 +1,8 @@
 @FleetOps.Api_HostAddress = http://localhost:5252
+@assetId = REPLACE_WITH_CREATED_ID
+@etag = REPLACE_WITH_BASE64_ROW_VERSION
 
-GET {{FleetOps.Api_HostAddress}}/api/assets
+GET {{FleetOps.Api_HostAddress}}/api/assets?page=1&pageSize=20&sortBy=name&descending=false
 Accept: application/json
 
 ###
@@ -12,3 +14,25 @@ Content-Type: application/json
   "name": "Hydraulic Pump",
   "serialNumber": "HP-003"
 }
+
+###
+
+GET {{FleetOps.Api_HostAddress}}/api/assets/{{assetId}}
+
+###
+
+# Copy the ETag from the latest GET response (or the base64 rowVersion).
+PUT {{FleetOps.Api_HostAddress}}/api/assets/{{assetId}}
+Content-Type: application/json
+If-Match: "{{etag}}"
+
+{
+  "name": "Updated Pump",
+  "serialNumber": "HP-003"
+}
+
+###
+
+# Fetch a fresh ETag after the update before deleting.
+DELETE {{FleetOps.Api_HostAddress}}/api/assets/{{assetId}}
+If-Match: "{{etag}}"

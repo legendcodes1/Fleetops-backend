@@ -19,7 +19,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\FleetOps.Infrastructure\FleetOps.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\src\FleetOps.Application\FleetOps.Application.csproj" />
   </ItemGroup>
 
 </Project>

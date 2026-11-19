@@ -1,6 +1,7 @@
 using System.Text.Json;
 using FleetOps.Api.Errors;
 using FleetOps.Domain.Exceptions;
+using FleetOps.Application.Exceptions;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -13,6 +14,9 @@ public sealed class ApiExceptionHandlerTests
     [InlineData("argument", 400)]
     [InlineData("domain", 409)]
     [InlineData("unexpected", 500)]
+    [InlineData("persistence", 409)]
+    [InlineData("concurrency", 412)]
+    [InlineData("precondition", 428)]
     public async Task ErrorsUseProblemDetailsAndHideUnexpectedDetails(string kind, int expectedStatus)
     {
         using var services = new ServiceCollection().AddLogging().AddProblemDetails().BuildServiceProvider();
@@ -23,6 +27,9 @@ public sealed class ApiExceptionHandlerTests
         {
             "argument" => new ArgumentException("Invalid asset"),
             "domain" => new DomainRuleException("Asset is retired"),
+            "persistence" => new PersistenceConflictException("Duplicate serial"),
+            "concurrency" => new ConcurrencyConflictException(),
+            "precondition" => new PreconditionRequiredException(),
             _ => new Exception("Sensitive database information")
         };
         var handler = new ApiExceptionHandler(services.GetRequiredService<IProblemDetailsService>(),

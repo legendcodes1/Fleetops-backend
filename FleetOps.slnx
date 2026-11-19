@@ -9,5 +9,6 @@
     <Project Path="tests/FleetOps.Api.Tests/FleetOps.Api.Tests.csproj" />
     <Project Path="tests/FleetOps.Application.Tests/FleetOps.Application.Tests.csproj" />
     <Project Path="tests/FleetOps.Domain.Tests/FleetOps.Domain.Tests.csproj" />
+    <Project Path="tests/FleetOps.Infrastructure.Tests/FleetOps.Infrastructure.Tests.csproj" />
   </Folder>
 </Solution>

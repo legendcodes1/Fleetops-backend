@@ -3,6 +3,7 @@ using FleetOps.Api.Errors;
 using FleetOps.Application.Interfaces;
 using FleetOps.Application.Services;
 using FleetOps.Infrastructure.Persistence;
+using Microsoft.EntityFrameworkCore;
 
 using Scalar.AspNetCore;
 
@@ -13,9 +14,22 @@ builder.Services.AddOpenApi();
 builder.Services.AddProblemDetails();
 builder.Services.AddExceptionHandler<ApiExceptionHandler>();
 builder.Services.AddScoped<IAssetService, AssetService>();
-builder.Services.AddSingleton<IAssetRepository>(_ => new InMemoryAssetRepository(builder.Environment.IsDevelopment()));
+var connection = builder.Configuration.GetConnectionString("FleetOps")
+    ?? throw new InvalidOperationException("Configure ConnectionStrings__FleetOps before starting FleetOps.");
+builder.Services.AddDbContext<FleetOpsDbContext>(options => options.UseSqlServer(connection));
+builder.Services.AddScoped<IAssetRepository, EfAssetRepository>();
 
 var app = builder.Build();
+if (args.Contains("--initialize-database"))
+{
+    if (!app.Environment.IsDevelopment())
+        throw new InvalidOperationException("Database initialization is only available in Development.");
+    await using var scope = app.Services.CreateAsyncScope();
+    var db = scope.ServiceProvider.GetRequiredService<FleetOpsDbContext>();
+    await db.Database.MigrateAsync();
+    await DevelopmentSeeder.SeedAsync(db);
+    return;
+}
 app.UseExceptionHandler();
 app.UseStatusCodePages();
 

@@ -3,9 +3,9 @@ namespace FleetOps.Application.Interfaces;
 
 public interface IAssetService
 {
-    IReadOnlyList<AssetDto> GetAll();
-    AssetDto? GetById(Guid id);
-    AssetDto Create(string name, string serialNumber);
-    bool Update(Guid id, string name, string serialNumber);
-    bool Delete(Guid id);
+    Task<PagedResult<AssetDto>> GetAllAsync(AssetQuery query, CancellationToken cancellationToken = default);
+    Task<AssetDto?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default);
+    Task<AssetDto> CreateAsync(string name, string serialNumber, CancellationToken cancellationToken = default);
+    Task<bool> UpdateAsync(Guid id, string name, string serialNumber, byte[] expectedVersion, CancellationToken cancellationToken = default);
+    Task<bool> DeleteAsync(Guid id, byte[] expectedVersion, CancellationToken cancellationToken = default);
 }

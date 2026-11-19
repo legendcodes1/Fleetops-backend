@@ -1,60 +1,35 @@
-using FleetOps.Application.Services;
-using FleetOps.Infrastructure.Persistence;
+using FleetOps.Application.Models;
+using FleetOps.Domain.Enums;
 
 namespace FleetOps.Application.Tests;
 
-public sealed class AssetServiceTests
+public sealed class AssetQueryTests
 {
-    [Fact]
-    public void SeparateServicesSharePersistenceAndCrudReturnsSnapshots()
-    {
-        var repository = new InMemoryAssetRepository();
-        var first = new AssetService(repository);
-        var second = new AssetService(repository);
-        var created = first.Create("Pump", "P-1");
-        Assert.Equal(created, second.GetById(created.Id));
-        var snapshot = second.GetAll();
-        Assert.True(second.Update(created.Id, "Motor", "M-1"));
-        Assert.Equal("Pump", snapshot.Single().Name);
-        Assert.Equal("Motor", first.GetById(created.Id)!.Name);
-        Assert.True(first.Delete(created.Id));
-        Assert.Null(second.GetById(created.Id));
-        Assert.Empty(second.GetAll());
-    }
+    [Theory]
+    [InlineData(0, 20)]
+    [InlineData(-1, 20)]
+    [InlineData(1, 0)]
+    [InlineData(1, 101)]
+    [InlineData(1000001, 20)]
+    public void PaginationRejectsUnboundedOrInvalidRequests(int page, int size) =>
+        Assert.Throws<ArgumentException>(() => new AssetQuery(page, size).Validate());
 
     [Fact]
-    public void MissingMutationsReturnFalse()
+    public void UnknownSortAndStatusAreRejected()
     {
-        var service = new AssetService(new InMemoryAssetRepository());
-        Assert.False(service.Update(Guid.NewGuid(), "Pump", "P-1"));
-        Assert.False(service.Delete(Guid.NewGuid()));
+        Assert.Throws<ArgumentException>(() => new AssetQuery(SortBy: "Name; DROP TABLE Assets").Validate());
+        Assert.Throws<ArgumentException>(() => new AssetQuery(Status: (AssetStatus)99).Validate());
+        Assert.Throws<ArgumentException>(() => new AssetQuery(Search: new string('x', 201)).Validate());
     }
 
-    [Fact]
-    public void InvalidUpdateLeavesStoredDetailsUnchanged()
+    [Theory]
+    [InlineData("name")]
+    [InlineData("serialNumber")]
+    [InlineData("createdAt")]
+    [InlineData("status")]
+    public void AllowedSortsAndPaginationBoundariesAreAccepted(string sort)
     {
-        var service = new AssetService(new InMemoryAssetRepository());
-        var asset = service.Create("Pump", "P-1");
-        Assert.Throws<ArgumentException>(() => service.Update(asset.Id, "Motor", ""));
-        Assert.Equal(asset, service.GetById(asset.Id));
-        Assert.Throws<ArgumentException>(() => service.Create("Pump", " "));
-        Assert.Single(service.GetAll());
-    }
-
-    [Fact]
-    public async Task ConcurrentCreatesAreNotLost()
-    {
-        var repository = new InMemoryAssetRepository();
-        await Task.WhenAll(Enumerable.Range(0, 100).Select(i =>
-            Task.Run(() => new AssetService(repository).Create($"Pump {i}", $"P-{i}"))));
-        Assert.Equal(100, repository.GetAll().Count);
-        Assert.Equal(100, repository.GetAll().Select(a => a.Id).Distinct().Count());
-    }
-
-    [Fact]
-    public void SeedDataIsExplicitAndRepositoriesAreIsolated()
-    {
-        Assert.Empty(new InMemoryAssetRepository().GetAll());
-        Assert.Equal(2, new InMemoryAssetRepository(seedDevelopmentData: true).GetAll().Count);
+        new AssetQuery(Page: 1000000, PageSize: 100, SortBy: sort).Validate();
+        new AssetQuery(Page: 1, PageSize: 1, SortBy: sort, Descending: true).Validate();
     }
 }

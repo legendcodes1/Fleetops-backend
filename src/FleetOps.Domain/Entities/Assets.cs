@@ -1,4 +1,5 @@
 using FleetOps.Domain.Enums;
+using FleetOps.Domain.Exceptions;
 
 namespace FleetOps.Domain.Entities;
 
@@ -20,7 +21,8 @@ public class Asset
             );
         }
 
-        // Your turn: validate serialNumber
+        if (string.IsNullOrWhiteSpace(serialNumber))
+            throw new ArgumentException("Asset serial number cannot be empty.", nameof(serialNumber));
 
         Id = Guid.NewGuid();
         Name = name;
@@ -32,7 +34,7 @@ public class Asset
     {
         if (Status != AssetStatus.Operational)
         {
-             throw new InvalidOperationException("Asset must be operational to send to maintenance.");
+             throw new DomainRuleException("Asset must be operational to send to maintenance.");
         }
 
         Status = AssetStatus.Maintenance;
@@ -40,24 +42,22 @@ public class Asset
 
     public void ReturnToService()
     {
-        // TODO: Validate and change status
         if (Status != AssetStatus.Maintenance)
         {
-            throw new InvalidOperationException("Asset must be in maintenance to return to service.");
+            throw new DomainRuleException("Asset must be in maintenance to return to service.");
         }
         Status = AssetStatus.Operational;
     }
 
     public void Retire()
     {
-        // TODO: Validate and change status
         if (Status != AssetStatus.Retired)
         {
             Status = AssetStatus.Retired;
         }
         else
         {
-            throw new InvalidOperationException("Asset must be operational to retire.");
+            throw new DomainRuleException("Asset is already retired.");
         }
     }
 
@@ -65,7 +65,7 @@ public class Asset
     {
         if (Status == AssetStatus.Retired)
         {
-            throw new InvalidOperationException(
+            throw new DomainRuleException(
                 "Cannot update a retired asset."
             );
         }

@@ -14,6 +14,7 @@
   <ItemGroup>
     <ProjectReference Include="..\FleetOps.Domain\FleetOps.Domain.csproj" />
     <ProjectReference Include="..\FleetOps.Application\FleetOps.Application.csproj" />
+    <ProjectReference Include="..\FleetOps.Infrastructure\FleetOps.Infrastructure.csproj" />
   </ItemGroup>
 
 </Project>

@@ -1,106 +1,33 @@
-using Microsoft.AspNetCore.Mvc;
-using FleetOps.Domain.Entities;
 using FleetOps.Api.Contracts;
-
+using FleetOps.Application.Interfaces;
+using Microsoft.AspNetCore.Mvc;
 namespace FleetOps.Api.Controllers;
 
 [ApiController]
-[Route("api/[controller]")]
-public class AssetsController : ControllerBase
+[Route("api/assets")]
+public sealed class AssetsController(IAssetService assets) : ControllerBase
 {
-        private static readonly List<Asset> Assets =
-    [
-        new Asset("Hydraulic Pump", "HP-001"),
-        new Asset("Conveyor Motor", "CM-002")
-    ];
-
     [HttpGet]
-    public IActionResult GetAssets()
-    {
-        // TODO: Create two Asset objects
-        //  var asset1 = new Asset("Hydraulic Pump", "HP-001");
-        //  var asset2 = new Asset("Conveyor Motor", "CM-002");
-
-        //  var assets = new List<Asset>();
-     
-        //  assets.Add(asset1);
-        //  assets.Add(asset2);
-
-         // shorthand 
-        //   var assets = new List<Asset>
-        //     {
-        //         new Asset("Hydraulic Pump", "HP-001"),
-        //         new Asset("Conveyor Motor", "CM-002")
-        //     };
-
-        return Ok(Assets);
-    }
-
+    public IActionResult GetAssets() => Ok(assets.GetAll().Select(AssetResponse.From));
 
     [HttpGet("{id:guid}")]
     public IActionResult GetAssetById(Guid id)
     {
-        Console.WriteLine($"Requested ID: {id}");
+        var asset = assets.GetById(id);
+        return asset is null ? NotFound() : Ok(AssetResponse.From(asset));
+    }
 
-        foreach (var item in Assets)
-        {
-            Console.WriteLine($"Stored ID: {item.Id}");
-        }
-
-        var asset = Assets.FirstOrDefault(a => a.Id == id);
-
-        if (asset == null)
-        {
-            return NotFound();
-        }
-
-        return Ok(asset);
+    [HttpPost]
+    public IActionResult CreateAsset(CreateAssetRequest request)
+    {
+        var asset = assets.Create(request.Name, request.SerialNumber);
+        return CreatedAtAction(nameof(GetAssetById), new { id = asset.Id }, AssetResponse.From(asset));
     }
 
     [HttpPut("{id:guid}")]
-    public IActionResult UpdateAsset( Guid id, [FromBody] UpdateAssetRequest request)
-    {
-        // 1. Find the asset by ID
-        var asset = Assets.FirstOrDefault(a => a.Id == id);
-        // 2. Return NotFound() if it doesn't exist
-        if (asset == null)
-        {
-            return NotFound();
-        }
-
-        asset.UpdateDetails(request.Name, request.SerialNumber);
-
-        return NoContent();
-    }
-
-
-    // From body Converts JSON into CreateAssetRequest
-    [HttpPost]
-    public IActionResult CreateAsset( [FromBody] CreateAssetRequest request)
-    {
-   
-        var asset = new Asset(request.Name, request.SerialNumber);
-
-        Assets.Add(asset);
-     
-        return CreatedAtAction(nameof(GetAssetById), new { id = asset.Id }, asset);
-    }
+    public IActionResult UpdateAsset(Guid id, UpdateAssetRequest request) =>
+        assets.Update(id, request.Name, request.SerialNumber) ? NoContent() : NotFound();
 
     [HttpDelete("{id:guid}")]
-    public IActionResult DeleteAsset(Guid id)
-    {
- 
-        var asset = Assets.FirstOrDefault(a => a.Id == id);
-     
-        if (asset == null)
-        {
-            return NotFound();
-        }
-     
-        Assets.Remove(asset);
-
-        return NoContent();
-    }
-
-
+    public IActionResult DeleteAsset(Guid id) => assets.Delete(id) ? NoContent() : NotFound();
 }

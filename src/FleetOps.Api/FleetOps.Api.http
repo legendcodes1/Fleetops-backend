@@ -1,6 +1,14 @@
 @FleetOps.Api_HostAddress = http://localhost:5252
 
-GET {{FleetOps.Api_HostAddress}}/weatherforecast/
+GET {{FleetOps.Api_HostAddress}}/api/assets
 Accept: application/json
 
 ###
+
+POST {{FleetOps.Api_HostAddress}}/api/assets
+Content-Type: application/json
+
+{
+  "name": "Hydraulic Pump",
+  "serialNumber": "HP-003"
+}

@@ -3,8 +3,11 @@
     <Project Path="src/FleetOps.Api/FleetOps.Api.csproj" />
     <Project Path="src/FleetOps.Application/FleetOps.Application.csproj" />
     <Project Path="src/FleetOps.Domain/FleetOps.Domain.csproj" />
+    <Project Path="src/FleetOps.Infrastructure/FleetOps.Infrastructure.csproj" />
   </Folder>
   <Folder Name="/tests/">
+    <Project Path="tests/FleetOps.Api.Tests/FleetOps.Api.Tests.csproj" />
+    <Project Path="tests/FleetOps.Application.Tests/FleetOps.Application.Tests.csproj" />
     <Project Path="tests/FleetOps.Domain.Tests/FleetOps.Domain.Tests.csproj" />
   </Folder>
 </Solution>

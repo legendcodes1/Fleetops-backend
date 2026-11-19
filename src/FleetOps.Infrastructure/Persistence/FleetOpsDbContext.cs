@@ -1,9 +1,14 @@
 using FleetOps.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
+using FleetOps.Infrastructure.Identity;
+using FleetOps.Application.Security;
 
 namespace FleetOps.Infrastructure.Persistence;
 
-public sealed class FleetOpsDbContext(DbContextOptions<FleetOpsDbContext> options) : DbContext(options)
+public sealed class FleetOpsDbContext(DbContextOptions<FleetOpsDbContext> options, ICurrentActor? actor = null)
+    : IdentityDbContext<FleetOpsUser, IdentityRole<Guid>, Guid>(options)
 {
     public DbSet<Asset> Assets => Set<Asset>();
     public DbSet<Technician> Technicians => Set<Technician>();
@@ -13,6 +18,11 @@ public sealed class FleetOpsDbContext(DbContextOptions<FleetOpsDbContext> option
 
     protected override void OnModelCreating(ModelBuilder model)
     {
+        base.OnModelCreating(model);
+        model.Entity<FleetOpsUser>().HasOne<Technician>().WithMany()
+            .HasForeignKey(u => u.TechnicianId).OnDelete(DeleteBehavior.Restrict);
+        model.Entity<FleetOpsUser>().HasIndex(u => u.TechnicianId).IsUnique().HasFilter("[TechnicianId] IS NOT NULL");
+        model.Entity<FleetOpsUser>().HasIndex(u => u.NormalizedEmail).IsUnique().HasFilter("[NormalizedEmail] IS NOT NULL");
         model.UseCollation("Latin1_General_100_CI_AS_SC");
         var asset = model.Entity<Asset>();
         asset.ToTable("Assets", table =>
@@ -97,7 +107,8 @@ public sealed class FleetOpsDbContext(DbContextOptions<FleetOpsDbContext> option
     {
         ChangeTracker.DetectChanges();
         var entries = ChangeTracker.Entries()
-            .Where(e => e.Entity is not AuditLog && e.State is EntityState.Added or EntityState.Modified or EntityState.Deleted)
+            .Where(e => e.Entity is Asset or Technician or WorkOrder or MaintenanceRecord
+                && e.State is EntityState.Added or EntityState.Modified or EntityState.Deleted)
             .ToArray();
         var logs = new List<AuditLog>();
         foreach (var entry in entries)
@@ -108,7 +119,7 @@ public sealed class FleetOpsDbContext(DbContextOptions<FleetOpsDbContext> option
                 EntityState.Modified => "Updated",
                 _ => "Deleted"
             };
-            logs.Add(new AuditLog((Guid)entry.Property("Id").CurrentValue!, entry.Metadata.ClrType.Name, action, "system"));
+            logs.Add(new AuditLog((Guid)entry.Property("Id").CurrentValue!, entry.Metadata.ClrType.Name, action, actor?.UserId ?? "system"));
         }
         AuditLogs.AddRange(logs);
         return logs.ToArray();

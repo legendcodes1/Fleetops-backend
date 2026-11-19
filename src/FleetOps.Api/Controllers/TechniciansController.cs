@@ -1,3 +1,5 @@
+using Microsoft.AspNetCore.Authorization;
+using FleetOps.Api.Security;
 using FleetOps.Api.Contracts;
 using FleetOps.Api.Http;
 using FleetOps.Application.Interfaces;
@@ -6,6 +8,7 @@ using Microsoft.AspNetCore.Mvc;
 namespace FleetOps.Api.Controllers;
 
 [ApiController]
+[Authorize(Policy = Policies.Operations)]
 [Route("api/technicians")]
 [ProducesResponseType<ProblemDetails>(400)]
 [ProducesResponseType<ProblemDetails>(404)]
@@ -28,7 +31,7 @@ public sealed class TechniciansController(IMaintenanceService maintenance) : Con
         Response.Headers.ETag = EntityTags.Quote(result.RowVersion);
         return Ok(TechnicianResponse.From(result));
     }
-    [HttpPost]
+    [HttpPost, Authorize(Policy = Policies.Administrator)]
     [ProducesResponseType<TechnicianResponse>(201)]
     public async Task<ActionResult<TechnicianResponse>> Create(TechnicianRequest request, CancellationToken token)
     {
@@ -36,7 +39,7 @@ public sealed class TechniciansController(IMaintenanceService maintenance) : Con
         Response.Headers.ETag = EntityTags.Quote(result.RowVersion);
         return CreatedAtAction(nameof(Get), new { id = result.Id }, TechnicianResponse.From(result));
     }
-    [HttpPut("{id:guid}")]
+    [HttpPut("{id:guid}"), Authorize(Policy = Policies.Administrator)]
     public async Task<ActionResult<TechnicianResponse>> Update(Guid id, TechnicianRequest request, CancellationToken token)
     {
         var result = await maintenance.UpdateTechnicianAsync(id, request.ToDetails(), EntityTags.Read(Request), token);

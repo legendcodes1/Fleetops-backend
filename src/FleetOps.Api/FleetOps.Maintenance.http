@@ -1,3 +1,5 @@
+@accessToken = REPLACE_WITH_ACCESS_TOKEN_FROM_LOGIN
+
 @host = http://localhost:5252
 @assetId = REPLACE_WITH_ASSET_GUID
 @technicianId = REPLACE_WITH_TECHNICIAN_GUID
@@ -5,10 +7,12 @@
 @etag = REPLACE_WITH_LATEST_BASE64_ROW_VERSION
 
 GET {{host}}/api/technicians?page=1&pageSize=20&availability=Available&sortBy=name
+Authorization: Bearer {{accessToken}}
 
 ###
 
 POST {{host}}/api/technicians
+Authorization: Bearer {{accessToken}}
 Content-Type: application/json
 
 {
@@ -21,10 +25,12 @@ Content-Type: application/json
 ###
 
 GET {{host}}/api/technicians/{{technicianId}}
+Authorization: Bearer {{accessToken}}
 
 ###
 
 PUT {{host}}/api/technicians/{{technicianId}}
+Authorization: Bearer {{accessToken}}
 Content-Type: application/json
 If-Match: "{{etag}}"
 
@@ -38,6 +44,7 @@ If-Match: "{{etag}}"
 ###
 
 POST {{host}}/api/work-orders
+Authorization: Bearer {{accessToken}}
 Content-Type: application/json
 
 {
@@ -50,15 +57,18 @@ Content-Type: application/json
 ###
 
 GET {{host}}/api/work-orders?status=Open&priority=High&sortBy=createdAt&descending=true
+Authorization: Bearer {{accessToken}}
 
 ###
 
 GET {{host}}/api/work-orders/{{orderId}}
+Authorization: Bearer {{accessToken}}
 
 ###
 
 # Refresh etag from every successful GET or work-order mutation response.
 PUT {{host}}/api/work-orders/{{orderId}}
+Authorization: Bearer {{accessToken}}
 Content-Type: application/json
 If-Match: "{{etag}}"
 
@@ -71,6 +81,7 @@ If-Match: "{{etag}}"
 ###
 
 POST {{host}}/api/work-orders/{{orderId}}/assign
+Authorization: Bearer {{accessToken}}
 Content-Type: application/json
 If-Match: "{{etag}}"
 
@@ -81,11 +92,13 @@ If-Match: "{{etag}}"
 ###
 
 POST {{host}}/api/work-orders/{{orderId}}/start
+Authorization: Bearer {{accessToken}}
 If-Match: "{{etag}}"
 
 ###
 
 POST {{host}}/api/work-orders/{{orderId}}/complete
+Authorization: Bearer {{accessToken}}
 Content-Type: application/json
 If-Match: "{{etag}}"
 
@@ -97,23 +110,28 @@ If-Match: "{{etag}}"
 
 # Cancel is an alternative to completing an order. Terminal orders cannot be cancelled.
 POST {{host}}/api/work-orders/{{orderId}}/cancel
+Authorization: Bearer {{accessToken}}
 If-Match: "{{etag}}"
 
 ###
 
 POST {{host}}/api/assets/{{assetId}}/maintenance
+Authorization: Bearer {{accessToken}}
 If-Match: "{{etag}}"
 
 ###
 
 POST {{host}}/api/assets/{{assetId}}/return-to-service
+Authorization: Bearer {{accessToken}}
 If-Match: "{{etag}}"
 
 ###
 
 POST {{host}}/api/assets/{{assetId}}/retire
+Authorization: Bearer {{accessToken}}
 If-Match: "{{etag}}"
 
 ###
 
 GET {{host}}/api/dashboard/summary
+Authorization: Bearer {{accessToken}}

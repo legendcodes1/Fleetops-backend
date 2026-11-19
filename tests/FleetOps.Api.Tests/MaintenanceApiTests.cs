@@ -15,11 +15,11 @@ public sealed class ApiSqlFixture : IAsyncLifetime
     public async Task DisposeAsync() => await Container.DisposeAsync();
 }
 
-internal sealed class FleetOpsTestApplication(string connection) : WebApplicationFactory<Program>
+internal sealed class FleetOpsTestApplication(string connection, string environment = "Development") : WebApplicationFactory<Program>
 {
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
-        builder.UseEnvironment("Development");
+        builder.UseEnvironment(environment);
         builder.ConfigureAppConfiguration((_, config) => config.AddInMemoryCollection(new Dictionary<string, string?>
         {
             ["ConnectionStrings:FleetOps"] = connection,
@@ -43,6 +43,8 @@ public sealed class MaintenanceApiTests(ApiSqlFixture fixture) : IClassFixture<A
             await db.Database.MigrateAsync();
         app = new FleetOpsTestApplication(connection);
         client = app.CreateClient();
+        var administrator = await TestAccounts.BootstrapAsync(app, client);
+        client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", administrator.AccessToken);
     }
 
     public async Task DisposeAsync()
@@ -262,7 +264,12 @@ public sealed class MaintenanceApiTests(ApiSqlFixture fixture) : IClassFixture<A
     {
         using var response = await client.GetAsync("/openapi/v1.json");
         Assert.Equal(200, (int)response.StatusCode);
-        var paths = (await Json(response)).GetProperty("paths");
+        var document = await Json(response);
+        var paths = document.GetProperty("paths");
+        Assert.Equal("bearer", document.GetProperty("components").GetProperty("securitySchemes").GetProperty("Bearer").GetProperty("scheme").GetString());
+        Assert.True(paths.GetProperty("/api/assets").GetProperty("get").GetProperty("security").GetArrayLength() > 0);
+        Assert.False(paths.GetProperty("/api/auth/login").GetProperty("post").TryGetProperty("security", out var loginSecurity)
+            && loginSecurity.GetArrayLength() > 0);
         foreach (var route in new[] { "/api/assets/{id}/maintenance", "/api/assets/{id}/return-to-service", "/api/assets/{id}/retire",
                      "/api/technicians", "/api/technicians/{id}", "/api/work-orders", "/api/work-orders/{id}",
                      "/api/work-orders/{id}/assign", "/api/work-orders/{id}/start", "/api/work-orders/{id}/complete",

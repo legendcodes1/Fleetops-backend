@@ -1,4 +1,4 @@
-param([string]$Image = 'fleetops-verify:phase3')
+param([string]$Image = 'fleetops-verify:phase4')
 $ErrorActionPreference = 'Stop'
 docker build -f Dockerfile.verify -t $Image .
 if ($LASTEXITCODE -ne 0) { throw 'Verification image build failed.' }

@@ -1,16 +1,23 @@
-param([string]$BaseUrl = 'http://localhost:5252')
+param([string]$BaseUrl = 'http://localhost:5252', [hashtable]$Headers = $global:FleetOpsHeaders)
 $ErrorActionPreference = 'Stop'
+if (-not $Headers -or -not $Headers.Authorization) { throw 'Authenticate with ./scripts/Connect-FleetOps.ps1 first.' }
+$targetUri = [Uri]$BaseUrl
+if ($targetUri.Scheme -ne 'https' -and -not ($targetUri.Scheme -eq 'http' -and $targetUri.IsLoopback)) {
+    throw 'Use HTTPS for remote requests.'
+}
 function Assert-Check($condition, $message) {
     if (-not $condition) { throw $message }
     Write-Output "PASS: $message"
 }
 function Send-Request($method, $path, $body = $null, $etag = $null) {
     $parameters = @{ UseBasicParsing = $true; Uri = "$BaseUrl$path"; Method = $method }
+    $parameters.Headers = @{}
+    foreach ($key in $Headers.Keys) { $parameters.Headers[$key] = $Headers[$key] }
     if ($null -ne $body) {
         $parameters.ContentType = 'application/json'
         $parameters.Body = $body | ConvertTo-Json -Compress
     }
-    if ($null -ne $etag) { $parameters.Headers = @{ 'If-Match' = $etag } }
+    if ($null -ne $etag) { $parameters.Headers['If-Match'] = $etag }
     try {
         $response = Invoke-WebRequest @parameters
         return [pscustomobject]@{ Status = [int]$response.StatusCode; Body = $response.Content; ETag = $response.Headers.ETag }

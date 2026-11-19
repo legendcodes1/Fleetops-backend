@@ -52,7 +52,7 @@ public sealed class SqlPersistenceTests(SqlServerFixture fixture) : IClassFixtur
         byte[] version;
         await using (var db = Context())
         {
-            var service = new AssetService(new EfAssetRepository(db));
+            var service = new AssetService(new EfAssetRepository(db), new PersistenceTestActor());
             var created = await service.CreateAsync("Pump", "P-1");
             id = created.Id;
             version = created.RowVersion;
@@ -61,7 +61,7 @@ public sealed class SqlPersistenceTests(SqlServerFixture fixture) : IClassFixtur
         }
         await using (var db = Context())
         {
-            var service = new AssetService(new EfAssetRepository(db));
+            var service = new AssetService(new EfAssetRepository(db), new PersistenceTestActor());
             Assert.True(await service.UpdateAsync(id, "Motor", "M-1", version));
         }
         await using (var db = Context())

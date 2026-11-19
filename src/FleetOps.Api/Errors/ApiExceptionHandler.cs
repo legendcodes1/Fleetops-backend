@@ -1,5 +1,6 @@
 using FleetOps.Domain.Exceptions;
 using FleetOps.Application.Exceptions;
+using FleetOps.Application.Security;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
 namespace FleetOps.Api.Errors;
@@ -11,6 +12,7 @@ public sealed class ApiExceptionHandler(IProblemDetailsService problems, ILogger
     {
         var status = exception switch
         {
+            AccessDeniedException => StatusCodes.Status403Forbidden,
             ResourceNotFoundException => StatusCodes.Status404NotFound,
             PreconditionRequiredException => StatusCodes.Status428PreconditionRequired,
             ConcurrencyConflictException => StatusCodes.Status412PreconditionFailed,
@@ -27,7 +29,7 @@ public sealed class ApiExceptionHandler(IProblemDetailsService problems, ILogger
             ProblemDetails = new ProblemDetails
             {
                 Status = status,
-                Title = status switch { 400 => "Invalid request", 404 => "Resource not found", 409 => "Resource conflict", 412 => "Precondition failed", 428 => "Precondition required", _ => "An unexpected error occurred" },
+                Title = status switch { 400 => "Invalid request", 403 => "Forbidden", 404 => "Resource not found", 409 => "Resource conflict", 412 => "Precondition failed", 428 => "Precondition required", _ => "An unexpected error occurred" },
                 Detail = status == 500 ? null : exception.Message
             }
         });

@@ -1,6 +1,6 @@
 ﻿# Phase 3: REST API and maintenance workflows
 
-Phase 3 adds asset lifecycle actions, technician management, work-order workflows, and a dashboard summary. Authentication and authorization remain Phase 4.
+Phase 3 added asset lifecycle actions, technician management, work-order workflows, and a dashboard summary. This is a historical checkpoint: [Phase 4](phase-4-security.md) now requires authentication and role/assignment authorization. The earlier unauthenticated container instructions below describe the Phase 3 checkpoint.
 
 ## Routes
 

@@ -5,6 +5,12 @@ namespace FleetOps.Application.Services;
 
 public sealed class AssetService(IAssetRepository repository) : IAssetService
 {
+    public Task<bool> TransitionAsync(Guid id, AssetTransition transition, byte[] expectedVersion, CancellationToken cancellationToken = default)
+    {
+        ValidateVersion(expectedVersion);
+        if (!Enum.IsDefined(transition)) throw new ArgumentException("Invalid asset transition.");
+        return repository.TransitionAsync(id, transition, expectedVersion, cancellationToken);
+    }
     public Task<PagedResult<AssetDto>> GetAllAsync(AssetQuery query, CancellationToken cancellationToken = default)
     {
         query.Validate();

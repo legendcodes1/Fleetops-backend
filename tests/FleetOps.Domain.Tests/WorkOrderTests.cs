@@ -7,6 +7,19 @@ namespace FleetOps.Domain.Tests;
 public sealed class WorkOrderTests
 {
     [Fact]
+    public void DetailsUpdateValidatesAtomicallyAndRejectsTerminalOrders()
+    {
+        var order = new WorkOrder(Guid.NewGuid(), "Inspect", "Inspect seals", WorkOrderPriority.Low);
+        Assert.Throws<ArgumentException>(() => order.UpdateDetails("Changed", "", WorkOrderPriority.High, null));
+        Assert.Equal("Inspect", order.Title);
+        Assert.Throws<ArgumentException>(() => order.UpdateDetails("Changed", "Details", WorkOrderPriority.High, DateTimeOffset.MinValue));
+        Assert.Equal("Inspect", order.Title);
+        order.UpdateDetails("Changed", "New details", WorkOrderPriority.Critical, null);
+        Assert.Equal(WorkOrderPriority.Critical, order.Priority);
+        order.Cancel();
+        Assert.Throws<DomainRuleException>(() => order.UpdateDetails("Again", "Details", WorkOrderPriority.Low, null));
+    }
+    [Fact]
     public void AssignmentRequiresAvailabilityAndOpenState()
     {
         var technician = new Technician("Alex", "alex@example.test", "Hydraulics");

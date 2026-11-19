@@ -1,5 +1,7 @@
 # Phase 2: database and data access
 
+This is the Phase 2 checkpoint. See [Phase 3](phase-3-api.md) for the current maintenance endpoints and HTTP test results.
+
 Phase 2 replaces the temporary asset collection with SQL Server persistence. Phase 1 notes describe the previous implementation.
 
 ## Implemented

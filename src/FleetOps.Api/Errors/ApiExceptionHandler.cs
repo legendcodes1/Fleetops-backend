@@ -11,6 +11,7 @@ public sealed class ApiExceptionHandler(IProblemDetailsService problems, ILogger
     {
         var status = exception switch
         {
+            ResourceNotFoundException => StatusCodes.Status404NotFound,
             PreconditionRequiredException => StatusCodes.Status428PreconditionRequired,
             ConcurrencyConflictException => StatusCodes.Status412PreconditionFailed,
             PersistenceConflictException => StatusCodes.Status409Conflict,
@@ -26,7 +27,7 @@ public sealed class ApiExceptionHandler(IProblemDetailsService problems, ILogger
             ProblemDetails = new ProblemDetails
             {
                 Status = status,
-                Title = status switch { 400 => "Invalid request", 409 => "Resource conflict", 412 => "Precondition failed", 428 => "Precondition required", _ => "An unexpected error occurred" },
+                Title = status switch { 400 => "Invalid request", 404 => "Resource not found", 409 => "Resource conflict", 412 => "Precondition failed", 428 => "Precondition required", _ => "An unexpected error occurred" },
                 Detail = status == 500 ? null : exception.Message
             }
         });

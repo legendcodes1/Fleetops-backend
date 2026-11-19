@@ -1,4 +1,5 @@
 using FleetOps.Api.Contracts;
+using FleetOps.Api.Http;
 using FleetOps.Application.Exceptions;
 using FleetOps.Application.Interfaces;
 using FleetOps.Application.Models;
@@ -7,6 +8,11 @@ namespace FleetOps.Api.Controllers;
 
 [ApiController]
 [Route("api/assets")]
+[ProducesResponseType<ProblemDetails>(400)]
+[ProducesResponseType<ProblemDetails>(404)]
+[ProducesResponseType<ProblemDetails>(409)]
+[ProducesResponseType<ProblemDetails>(412)]
+[ProducesResponseType<ProblemDetails>(428)]
 public sealed class AssetsController(IAssetService assets) : ControllerBase
 {
     [HttpGet]
@@ -21,40 +27,36 @@ public sealed class AssetsController(IAssetService assets) : ControllerBase
     {
         var asset = await assets.GetByIdAsync(id, cancellationToken);
         if (asset is null) return NotFound();
-        Response.Headers.ETag = QuoteVersion(asset.RowVersion);
+        Response.Headers.ETag = EntityTags.Quote(asset.RowVersion);
         return Ok(AssetResponse.From(asset));
     }
 
     [HttpPost]
+    [ProducesResponseType<AssetResponse>(201)]
     public async Task<ActionResult<AssetResponse>> CreateAsset(CreateAssetRequest request, CancellationToken cancellationToken)
     {
         var asset = await assets.CreateAsync(request.Name, request.SerialNumber, cancellationToken);
-        Response.Headers.ETag = QuoteVersion(asset.RowVersion);
+        Response.Headers.ETag = EntityTags.Quote(asset.RowVersion);
         return CreatedAtAction(nameof(GetAssetById), new { id = asset.Id }, AssetResponse.From(asset));
     }
 
     [HttpPut("{id:guid}")]
     public async Task<IActionResult> UpdateAsset(Guid id, UpdateAssetRequest request, CancellationToken cancellationToken) =>
-        await assets.UpdateAsync(id, request.Name, request.SerialNumber, ReadExpectedVersion(), cancellationToken) ? NoContent() : NotFound();
+        await assets.UpdateAsync(id, request.Name, request.SerialNumber, EntityTags.Read(Request), cancellationToken) ? NoContent() : NotFound();
 
     [HttpDelete("{id:guid}")]
     public async Task<IActionResult> DeleteAsset(Guid id, CancellationToken cancellationToken) =>
-        await assets.DeleteAsync(id, ReadExpectedVersion(), cancellationToken) ? NoContent() : NotFound();
+        await assets.DeleteAsync(id, EntityTags.Read(Request), cancellationToken) ? NoContent() : NotFound();
 
-    private byte[] ReadExpectedVersion()
-    {
-        var header = Request.Headers.IfMatch.ToString();
-        if (string.IsNullOrWhiteSpace(header)) throw new PreconditionRequiredException();
-        if (header.Length < 3 || header[0] != '"' || header[^1] != '"')
-            throw new ArgumentException("If-Match must contain one quoted resource ETag.");
-        try
-        {
-            var bytes = Convert.FromBase64String(header[1..^1]);
-            if (bytes.Length != 8) throw new FormatException();
-            return bytes;
-        }
-        catch (FormatException) { throw new ArgumentException("If-Match must contain one valid resource ETag."); }
-    }
-
-    private static string QuoteVersion(byte[] version) => $"\"{Convert.ToBase64String(version)}\"";
+    [HttpPost("{id:guid}/maintenance")]
+    [ProducesResponseType(204)]
+    public Task<IActionResult> Maintenance(Guid id, CancellationToken token) => Transition(id, AssetTransition.Maintenance, token);
+    [HttpPost("{id:guid}/return-to-service")]
+    [ProducesResponseType(204)]
+    public Task<IActionResult> ReturnToService(Guid id, CancellationToken token) => Transition(id, AssetTransition.ReturnToService, token);
+    [HttpPost("{id:guid}/retire")]
+    [ProducesResponseType(204)]
+    public Task<IActionResult> Retire(Guid id, CancellationToken token) => Transition(id, AssetTransition.Retire, token);
+    private async Task<IActionResult> Transition(Guid id, AssetTransition transition, CancellationToken token) =>
+        await assets.TransitionAsync(id, transition, EntityTags.Read(Request), token) ? NoContent() : NotFound();
 }

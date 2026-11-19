@@ -9,6 +9,22 @@ namespace FleetOps.Infrastructure.Persistence;
 
 public sealed class EfAssetRepository(FleetOpsDbContext db) : IAssetRepository
 {
+    public async Task<bool> TransitionAsync(Guid id, AssetTransition transition, byte[] expectedVersion, CancellationToken cancellationToken = default)
+    {
+        var asset = await db.Assets.SingleOrDefaultAsync(a => a.Id == id, cancellationToken);
+        if (asset is null) return false;
+        if (!asset.RowVersion.SequenceEqual(expectedVersion)) throw new ConcurrencyConflictException();
+        db.Entry(asset).Property(a => a.RowVersion).OriginalValue = expectedVersion;
+        switch (transition)
+        {
+            case AssetTransition.Maintenance: asset.SendToMaintenance(); break;
+            case AssetTransition.ReturnToService: asset.ReturnToService(); break;
+            case AssetTransition.Retire: asset.Retire(); break;
+            default: throw new ArgumentException("Invalid asset transition.");
+        }
+        await SaveAsync(cancellationToken);
+        return true;
+    }
     private static readonly System.Linq.Expressions.Expression<Func<Asset, AssetDto>> Projection =
         asset => new AssetDto(asset.Id, asset.Name, asset.SerialNumber, asset.Status,
             asset.CreatedAt, asset.UpdatedAt, asset.RowVersion);

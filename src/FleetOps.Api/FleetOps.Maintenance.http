@@ -1,0 +1,119 @@
+@host = http://localhost:5252
+@assetId = REPLACE_WITH_ASSET_GUID
+@technicianId = REPLACE_WITH_TECHNICIAN_GUID
+@orderId = REPLACE_WITH_ORDER_GUID
+@etag = REPLACE_WITH_LATEST_BASE64_ROW_VERSION
+
+GET {{host}}/api/technicians?page=1&pageSize=20&availability=Available&sortBy=name
+
+###
+
+POST {{host}}/api/technicians
+Content-Type: application/json
+
+{
+  "name": "Alex Morgan",
+  "email": "alex@example.test",
+  "specialization": "Hydraulics",
+  "availability": 0
+}
+
+###
+
+GET {{host}}/api/technicians/{{technicianId}}
+
+###
+
+PUT {{host}}/api/technicians/{{technicianId}}
+Content-Type: application/json
+If-Match: "{{etag}}"
+
+{
+  "name": "Alex Morgan",
+  "email": "alex@example.test",
+  "specialization": "Hydraulics",
+  "availability": 0
+}
+
+###
+
+POST {{host}}/api/work-orders
+Content-Type: application/json
+
+{
+  "assetId": "{{assetId}}",
+  "title": "Inspect hydraulic seals",
+  "description": "Inspect for leaks and replace damaged seals.",
+  "priority": 2
+}
+
+###
+
+GET {{host}}/api/work-orders?status=Open&priority=High&sortBy=createdAt&descending=true
+
+###
+
+GET {{host}}/api/work-orders/{{orderId}}
+
+###
+
+# Refresh etag from every successful GET or work-order mutation response.
+PUT {{host}}/api/work-orders/{{orderId}}
+Content-Type: application/json
+If-Match: "{{etag}}"
+
+{
+  "title": "Inspect hydraulic seals",
+  "description": "Inspect seals and hoses.",
+  "priority": 2
+}
+
+###
+
+POST {{host}}/api/work-orders/{{orderId}}/assign
+Content-Type: application/json
+If-Match: "{{etag}}"
+
+{
+  "technicianId": "{{technicianId}}"
+}
+
+###
+
+POST {{host}}/api/work-orders/{{orderId}}/start
+If-Match: "{{etag}}"
+
+###
+
+POST {{host}}/api/work-orders/{{orderId}}/complete
+Content-Type: application/json
+If-Match: "{{etag}}"
+
+{
+  "notes": "Replaced the damaged seal and verified normal operation."
+}
+
+###
+
+# Cancel is an alternative to completing an order. Terminal orders cannot be cancelled.
+POST {{host}}/api/work-orders/{{orderId}}/cancel
+If-Match: "{{etag}}"
+
+###
+
+POST {{host}}/api/assets/{{assetId}}/maintenance
+If-Match: "{{etag}}"
+
+###
+
+POST {{host}}/api/assets/{{assetId}}/return-to-service
+If-Match: "{{etag}}"
+
+###
+
+POST {{host}}/api/assets/{{assetId}}/retire
+If-Match: "{{etag}}"
+
+###
+
+GET {{host}}/api/dashboard/summary

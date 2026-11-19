@@ -42,6 +42,20 @@ public class WorkOrder
         Status = WorkOrderStatus.Assigned;
     }
 
+    public void UpdateDetails(string title, string description, WorkOrderPriority priority, DateTimeOffset? dueDate)
+    {
+        if (Status is WorkOrderStatus.Completed or WorkOrderStatus.Cancelled)
+            throw new DomainRuleException("Cannot update a terminal work order.");
+        var validTitle = Guard.Text(title, 200, nameof(title));
+        var validDescription = Guard.Text(description, 4000, nameof(description));
+        Guard.Defined(priority, nameof(priority));
+        if (dueDate < CreatedAt) throw new ArgumentException("Due date cannot precede creation.", nameof(dueDate));
+        Title = validTitle;
+        Description = validDescription;
+        Priority = priority;
+        DueDate = dueDate;
+    }
+
     public void Start()
     {
         if (Status != WorkOrderStatus.Assigned || AssignedTechnicianId is null)

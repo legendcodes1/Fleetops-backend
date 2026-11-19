@@ -4,6 +4,7 @@ namespace FleetOps.Application.Interfaces;
 
 public interface IAssetRepository
 {
+    Task<bool> TransitionAsync(Guid id, AssetTransition transition, byte[] expectedVersion, CancellationToken cancellationToken = default);
     Task<PagedResult<AssetDto>> GetAllAsync(AssetQuery query, CancellationToken cancellationToken = default);
     Task<AssetDto?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default);
     Task<AssetDto> AddAsync(Asset asset, CancellationToken cancellationToken = default);

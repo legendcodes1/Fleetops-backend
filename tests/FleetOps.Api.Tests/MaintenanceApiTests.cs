@@ -5,21 +5,26 @@ using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Testcontainers.MsSql;
+using FleetOps.Testing;
+using Microsoft.EntityFrameworkCore.Diagnostics;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace FleetOps.Api.Tests;
 
 public sealed class ApiSqlFixture : IAsyncLifetime
 {
-    public MsSqlContainer Container { get; } = new MsSqlBuilder("mcr.microsoft.com/mssql/server:2022-latest").Build();
+    public MsSqlContainer Container { get; } = new MsSqlBuilder(SqlTestDefaults.Image).Build();
     public Task InitializeAsync() => Container.StartAsync();
     public async Task DisposeAsync() => await Container.DisposeAsync();
 }
 
-internal sealed class FleetOpsTestApplication(string connection, string environment = "Development") : WebApplicationFactory<Program>
+internal sealed class FleetOpsTestApplication(string connection, string environment = "Development", IInterceptor? interceptor = null) : WebApplicationFactory<Program>
 {
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseEnvironment(environment);
+        if (interceptor is not null)
+            builder.ConfigureServices(services => services.AddDbContext<FleetOpsDbContext>(options => options.AddInterceptors(interceptor)));
         builder.ConfigureAppConfiguration((_, config) => config.AddInMemoryCollection(new Dictionary<string, string?>
         {
             ["ConnectionStrings:FleetOps"] = connection,
@@ -29,19 +34,17 @@ internal sealed class FleetOpsTestApplication(string connection, string environm
     }
 }
 
-public sealed class MaintenanceApiTests(ApiSqlFixture fixture) : IClassFixture<ApiSqlFixture>, IAsyncLifetime
+public sealed partial class MaintenanceApiTests(ApiSqlFixture fixture) : IClassFixture<ApiSqlFixture>, IAsyncLifetime
 {
-    private string connection = "";
+    private SqlTestDatabase database = null!;
+    private readonly ConcurrentWriteGate writeGate = new();
     private FleetOpsTestApplication app = null!;
     private HttpClient client = null!;
 
     public async Task InitializeAsync()
     {
-        connection = new SqlConnectionStringBuilder(fixture.Container.GetConnectionString())
-        { InitialCatalog = "FleetOps_Http_" + Guid.NewGuid().ToString("N") }.ConnectionString;
-        await using (var db = Db())
-            await db.Database.MigrateAsync();
-        app = new FleetOpsTestApplication(connection);
+        database = await SqlTestDatabase.CreateAsync(fixture.Container.GetConnectionString());
+        app = new FleetOpsTestApplication(database.ConnectionString, interceptor: writeGate);
         client = app.CreateClient();
         var administrator = await TestAccounts.BootstrapAsync(app, client);
         client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", administrator.AccessToken);
@@ -50,12 +53,11 @@ public sealed class MaintenanceApiTests(ApiSqlFixture fixture) : IClassFixture<A
     public async Task DisposeAsync()
     {
         client?.Dispose();
-        if (app is not null) await app.DisposeAsync();
-        await using var db = Db();
-        await db.Database.EnsureDeletedAsync();
+        try { if (app is not null) await app.DisposeAsync(); }
+        finally { if (database is not null) await database.DisposeAsync(); }
     }
 
-    private FleetOpsDbContext Db() => new(new DbContextOptionsBuilder<FleetOpsDbContext>().UseSqlServer(connection).Options);
+    private FleetOpsDbContext Db() => database.CreateContext();
     private static async Task<System.Text.Json.JsonElement> Json(HttpResponseMessage response) =>
         System.Text.Json.JsonDocument.Parse(await response.Content.ReadAsStringAsync()).RootElement.Clone();
     private async Task<HttpResponseMessage> Send(HttpMethod method, string path, object? body = null, string? tag = null)
@@ -248,6 +250,7 @@ public sealed class MaintenanceApiTests(ApiSqlFixture fixture) : IClassFixture<A
         var first = await Technician();
         var second = await Technician("second@example.test");
         var order = await Order(asset.Id);
+        writeGate.WorkOrderId = order.Id;
         var results = await Task.WhenAll(
             Send(HttpMethod.Post, $"/api/work-orders/{order.Id}/assign", new { technicianId = first.Id }, order.Tag),
             Send(HttpMethod.Post, $"/api/work-orders/{order.Id}/assign", new { technicianId = second.Id }, order.Tag));
@@ -257,6 +260,9 @@ public sealed class MaintenanceApiTests(ApiSqlFixture fixture) : IClassFixture<A
         await Problem(Assert.Single(results, r => (int)r.StatusCode == 412), 412);
         await using var db = Db();
         Assert.Equal((int)left.StatusCode == 200 ? first.Id : second.Id, (await db.WorkOrders.SingleAsync()).AssignedTechnicianId);
+        Assert.Equal(2, writeGate.Arrivals);
+        Assert.All(writeGate.OriginalVersions, version => Assert.Equal(order.Tag.Trim('"'), version));
+        Assert.Equal(1, await db.AuditLogs.CountAsync(a => a.EntityId == order.Id && a.Action == "Updated"));
     }
 
     [Fact]

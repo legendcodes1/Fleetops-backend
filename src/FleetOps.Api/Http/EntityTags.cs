@@ -13,7 +13,7 @@ internal static class EntityTags
         try
         {
             var bytes = Convert.FromBase64String(header[1..^1]);
-            if (bytes.Length != 8) throw new FormatException();
+            if (bytes.Length != 8 || Quote(bytes) != header) throw new FormatException();
             return bytes;
         }
         catch (FormatException) { throw new ArgumentException("If-Match must contain one valid resource ETag."); }

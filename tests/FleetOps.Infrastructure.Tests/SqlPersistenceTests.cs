@@ -6,29 +6,24 @@ using FleetOps.Domain.Enums;
 using FleetOps.Infrastructure.Persistence;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
+using FleetOps.Testing;
+using FleetOps.Application.Security;
 
 namespace FleetOps.Infrastructure.Tests;
 
 public sealed class SqlPersistenceTests(SqlServerFixture fixture) : IClassFixture<SqlServerFixture>, IAsyncLifetime
 {
-    private DbContextOptions<FleetOpsDbContext> options = null!;
-    private FleetOpsDbContext Context() => new(options);
+    private SqlTestDatabase database = null!;
+    private FleetOpsDbContext Context() => database.CreateContext();
 
     public async Task InitializeAsync()
     {
-        var connection = new SqlConnectionStringBuilder(fixture.Container.GetConnectionString())
-        {
-            InitialCatalog = "FleetOps_Test_" + Guid.NewGuid().ToString("N")
-        };
-        options = new DbContextOptionsBuilder<FleetOpsDbContext>().UseSqlServer(connection.ConnectionString).Options;
-        await using var db = Context();
-        await db.Database.MigrateAsync();
+        database = await SqlTestDatabase.CreateAsync(fixture.Container.GetConnectionString());
     }
 
     public async Task DisposeAsync()
     {
-        await using var db = Context();
-        await db.Database.EnsureDeletedAsync();
+        if (database is not null) await database.DisposeAsync();
     }
 
     [Fact]
@@ -262,5 +257,98 @@ public sealed class SqlPersistenceTests(SqlServerFixture fixture) : IClassFixtur
         await using var db = Context();
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
             new EfAssetRepository(db).GetAllAsync(new AssetQuery(), cancellation.Token));
+    }
+
+    [Fact]
+    public async Task FailedCompletionSaveRollsBackOrderRecordAndGeneratedAudits()
+    {
+        Guid orderId;
+        await using (var db = Context())
+        {
+            await DevelopmentSeeder.SeedAsync(db);
+            var order = await db.WorkOrders.SingleAsync();
+            order.Start();
+            await db.SaveChangesAsync();
+            orderId = order.Id;
+        }
+        await using (var db = Context())
+        {
+            var order = await db.WorkOrders.SingleAsync();
+            var record = order.Complete("Valid domain notes");
+            db.MaintenanceRecords.Add(record);
+            // Test-only fault injection bypasses the domain to force a real SQL length-constraint failure.
+            db.Entry(record).Property(r => r.Notes).CurrentValue = new string('x', 4001);
+            await Assert.ThrowsAsync<DbUpdateException>(() => db.SaveChangesAsync());
+        }
+        await using (var db = Context())
+        {
+            var stored = await db.WorkOrders.SingleAsync();
+            Assert.Equal(WorkOrderStatus.InProgress, stored.Status);
+            Assert.Null(stored.CompletedAt);
+            Assert.Empty(await db.MaintenanceRecords.ToListAsync());
+            Assert.Equal(2, await db.AuditLogs.CountAsync(a => a.EntityId == orderId));
+            Assert.False(await db.AuditLogs.AnyAsync(a => a.EntityType == "MaintenanceRecord"));
+        }
+    }
+
+    [Fact]
+    public async Task CancelledWritePersistsNeitherAssetNorAudit()
+    {
+        using var cancellation = new CancellationTokenSource();
+        cancellation.Cancel();
+        await using (var db = Context())
+        {
+            db.Assets.Add(new Asset("Cancelled", "CANCELLED-1"));
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(() => db.SaveChangesAsync(cancellation.Token));
+        }
+        await using (var db = Context())
+        {
+            Assert.Empty(await db.Assets.ToListAsync());
+            Assert.Empty(await db.AuditLogs.ToListAsync());
+        }
+    }
+
+    [Fact]
+    public async Task ApplicationServicesEnforceTechnicianScopeWithoutControllerPolicies()
+    {
+        Guid ownId;
+        Guid otherOrderId;
+        byte[] otherVersion;
+        Guid assetId;
+        await using (var db = Context())
+        {
+            await DevelopmentSeeder.SeedAsync(db);
+            var own = await db.Technicians.SingleAsync();
+            var other = new Technician("Other", "other@example.test", "Electrical");
+            assetId = (await db.Assets.SingleAsync()).Id;
+            var otherOrder = new WorkOrder(assetId, "Other assignment", "Inspect motor", WorkOrderPriority.High);
+            otherOrder.Assign(other);
+            db.AddRange(other, otherOrder);
+            await db.SaveChangesAsync();
+            ownId = own.Id;
+            otherOrderId = otherOrder.Id;
+            otherVersion = otherOrder.RowVersion;
+        }
+        await using (var db = Context())
+        {
+            var actor = new PersistenceTestActor(Roles.Technician, ownId);
+            var assets = new EfAssetRepository(db);
+            var maintenance = new MaintenanceService(new EfMaintenanceStore(db), assets, actor);
+            var page = await maintenance.ListWorkOrdersAsync(new MaintenanceQuery(SortBy: "title"), CancellationToken.None);
+            Assert.Equal(1, page.TotalCount);
+            Assert.Equal(ownId, Assert.Single(page.Items).AssignedTechnicianId);
+            await Assert.ThrowsAsync<AccessDeniedException>(() => maintenance.GetWorkOrderAsync(otherOrderId, CancellationToken.None));
+            await Assert.ThrowsAsync<AccessDeniedException>(() => maintenance.StartAsync(otherOrderId, otherVersion, CancellationToken.None));
+            await Assert.ThrowsAsync<AccessDeniedException>(() => maintenance.CreateWorkOrderAsync(assetId,
+                new WorkOrderDetails("Forbidden", "Forbidden", WorkOrderPriority.Low, null), CancellationToken.None));
+            await Assert.ThrowsAsync<AccessDeniedException>(() => new AssetService(assets, actor).CreateAsync("Forbidden", "FORBIDDEN"));
+        }
+        await using (var db = Context())
+        {
+            Assert.Equal(WorkOrderStatus.Assigned, (await db.WorkOrders.SingleAsync(w => w.Id == otherOrderId)).Status);
+            Assert.Equal(2, await db.WorkOrders.CountAsync());
+            Assert.Single(await db.Assets.ToListAsync());
+            Assert.False(await db.AuditLogs.AnyAsync(a => a.Action == "Updated"));
+        }
     }
 }

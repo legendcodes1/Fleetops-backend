@@ -11,12 +11,14 @@ using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
+using FleetOps.Testing;
 
 namespace FleetOps.Api.Tests;
 
 public sealed class SecurityApiTests(ApiSqlFixture fixture) : IClassFixture<ApiSqlFixture>, IAsyncLifetime
 {
     private string connection = "";
+    private SqlTestDatabase database = null!;
     private FleetOpsTestApplication app = null!;
     private HttpClient anonymous = null!;
     private HttpClient administrator = null!;
@@ -24,9 +26,8 @@ public sealed class SecurityApiTests(ApiSqlFixture fixture) : IClassFixture<ApiS
 
     public async Task InitializeAsync()
     {
-        connection = new SqlConnectionStringBuilder(fixture.Container.GetConnectionString())
-        { InitialCatalog = "FleetOps_Security_" + Guid.NewGuid().ToString("N") }.ConnectionString;
-        await using (var db = Db()) await db.Database.MigrateAsync();
+        database = await SqlTestDatabase.CreateAsync(fixture.Container.GetConnectionString());
+        connection = database.ConnectionString;
         app = new FleetOpsTestApplication(connection);
         anonymous = app.CreateClient();
         administrator = app.CreateClient();
@@ -37,11 +38,10 @@ public sealed class SecurityApiTests(ApiSqlFixture fixture) : IClassFixture<ApiS
     {
         administrator?.Dispose();
         anonymous?.Dispose();
-        if (app is not null) await app.DisposeAsync();
-        await using var db = Db();
-        await db.Database.EnsureDeletedAsync();
+        try { if (app is not null) await app.DisposeAsync(); }
+        finally { if (database is not null) await database.DisposeAsync(); }
     }
-    private FleetOpsDbContext Db() => new(new DbContextOptionsBuilder<FleetOpsDbContext>().UseSqlServer(connection).Options);
+    private FleetOpsDbContext Db() => database.CreateContext();
     private static async Task<JsonElement> Json(HttpResponseMessage response) => JsonDocument.Parse(await response.Content.ReadAsStringAsync()).RootElement.Clone();
     private static async Task Problem(HttpResponseMessage response, int status)
     {
@@ -407,5 +407,29 @@ public sealed class SecurityApiTests(ApiSqlFixture fixture) : IClassFixture<ApiS
         { BaseAddress = new Uri("https://localhost"), AllowAutoRedirect = false });
         using var secure = await https.GetAsync("/api/assets");
         await Problem(secure, 401);
+    }
+
+    [Fact]
+    public async Task TwoTechniciansCannotClaimAnOrderThroughTheSupervisorOnlyEndpoint()
+    {
+        var asset = await Asset();
+        var firstId = await Technician("first-claim@example.test");
+        var secondId = await Technician("second-claim@example.test");
+        var first = await Account("first-claim-login@example.test", Roles.Technician, firstId);
+        var second = await Account("second-claim-login@example.test", Roles.Technician, secondId);
+        var order = await Order(asset.Id);
+        var responses = await Task.WhenAll(
+            Send(anonymous, HttpMethod.Post, $"/api/work-orders/{order.Id}/assign", new { technicianId = firstId }, first.AccessToken, order.Tag),
+            Send(anonymous, HttpMethod.Post, $"/api/work-orders/{order.Id}/assign", new { technicianId = secondId }, second.AccessToken, order.Tag));
+        try
+        {
+            foreach (var response in responses) await Problem(response, 403);
+            await using var db = Db();
+            var stored = await db.WorkOrders.SingleAsync(w => w.Id == order.Id);
+            Assert.Null(stored.AssignedTechnicianId);
+            Assert.Equal(FleetOps.Domain.Enums.WorkOrderStatus.Open, stored.Status);
+            Assert.Equal(1, await db.AuditLogs.CountAsync(a => a.EntityId == order.Id));
+        }
+        finally { foreach (var response in responses) response.Dispose(); }
     }
 }

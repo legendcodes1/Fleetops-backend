@@ -6,6 +6,23 @@ namespace FleetOps.Domain.Tests;
 
 public sealed class AssetRulesTests
 {
+    [Fact]
+    public void DocumentedMaximumLengthsAndNormalizationAreSupported()
+    {
+        var asset = new Asset("  " + new string('n', 200) + " ", " " + new string('s', 100) + " ");
+        Assert.Equal(200, asset.Name.Length);
+        Assert.Equal(100, asset.SerialNumber.Length);
+        Assert.NotEqual(Guid.Empty, asset.Id);
+        Assert.Equal(asset.CreatedAt, asset.UpdatedAt);
+        var id = asset.Id;
+        var created = asset.CreatedAt;
+        asset.UpdateDetails(" Updated ", " S-2 ");
+        Assert.Equal("Updated", asset.Name);
+        Assert.Equal("S-2", asset.SerialNumber);
+        Assert.Equal(id, asset.Id);
+        Assert.Equal(created, asset.CreatedAt);
+        Assert.Equal(AssetStatus.Operational, asset.Status);
+    }
     [Theory]
     [InlineData("", "P-1")]
     [InlineData(" ", "P-1")]

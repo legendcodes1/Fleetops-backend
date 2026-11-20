@@ -2,6 +2,8 @@
 
 FleetOps now uses ASP.NET Core Identity and its built-in protected bearer tokens. All business endpoints require authenticated staff; accounts are provisioned by administrators. No default passwords, signing secrets, public registration, or paid identity-provider resources are added.
 
+The security results below record the Phase 4 checkpoint. See [Phase 5 testing](phase-5-testing.md) for the expanded suite and current verification commands.
+
 ## Permission model
 
 | Capability | Administrator | Supervisor | Technician |

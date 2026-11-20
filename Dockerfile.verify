@@ -1,8 +1,8 @@
-FROM mcr.microsoft.com/dotnet/sdk:10.0
+FROM mcr.microsoft.com/dotnet/sdk:10.0@sha256:bef136a371963aaa46ec97882845ef6f54dec15728bb4b128b1c2a400ffbc9b4
 WORKDIR /workspace
-COPY FleetOps.slnx dotnet-tools.json ./
+COPY FleetOps.slnx dotnet-tools.json tests.runsettings ./
 COPY src ./src
 COPY tests ./tests
 RUN dotnet restore FleetOps.slnx && dotnet tool restore
 RUN dotnet build FleetOps.slnx --no-restore -m:1 -p:UseSharedCompilation=false
-CMD ["dotnet", "test", "FleetOps.slnx", "--no-build", "--no-restore", "-m:1", "--logger", "console;verbosity=normal"]
+CMD ["dotnet", "test", "FleetOps.slnx", "--no-build", "--no-restore", "-m:1", "--settings", "tests.runsettings", "--logger", "console;verbosity=minimal"]

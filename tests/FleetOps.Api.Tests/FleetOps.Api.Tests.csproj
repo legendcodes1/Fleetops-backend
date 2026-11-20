@@ -22,6 +22,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\FleetOps.Api\FleetOps.Api.csproj" />
+    <Compile Include="../Shared/SqlTestDatabase.cs" Link="Support/SqlTestDatabase.cs" />
   </ItemGroup>
 
 </Project>
